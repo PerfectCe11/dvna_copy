@@ -16,7 +16,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 8
 
       # ✅ Install ONLY public security tools (no project deps)
       - name: Install Security Tooling
