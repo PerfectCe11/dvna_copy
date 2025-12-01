@@ -2,7 +2,9 @@ name: React XSS Notification (Targeted)
 
 on:
   pull_request:
-    branches: [ main, develop ]
+    branches:
+      - main
+      - develop
   workflow_dispatch:
 
 jobs:
@@ -12,24 +14,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Targeted React XSS Scan
-        id: semgrep
+      - name: Verify Semgrep Rules File Exists
         run: |
-          docker run --rm -v "$PWD:/src" returntocorp/semgrep \
+          if [ ! -f .semgrep/react-xss-only.yml ]; then
+            echo "❌ ERROR: .semgrep/react-xss-only.yml not found"
+            echo "Contents of .semgrep directory:"
+            ls -lah .semgrep || true
+            exit 1
+          fi
+
+      - name: Run Targeted React XSS Scan
+        run: |
+          docker run --rm \
+            -v "$PWD:/src" \
+            returntocorp/semgrep \
             semgrep scan \
             --config=/src/.semgrep/react-xss-only.yml \
             --json > semgrep.json || true
 
-      - name: Debug (optional – first run)
+      - name: Debug Output (First Run Only)
         run: |
-          ls -lah semgrep.json
+          echo "----- semgrep.json preview -----"
           head -n 50 semgrep.json
+          echo "--------------------------------"
 
       - name: Check If XSS Was Found
         id: check
         run: |
           COUNT=$(cat semgrep.json | jq '.results | length')
           echo "xss_count=$COUNT" >> $GITHUB_OUTPUT
+          echo "XSS findings: $COUNT"
 
       - name: Comment on PR if XSS Found
         if: steps.check.outputs.xss_count != '0'
@@ -43,10 +57,10 @@ jobs:
             let body = '## ❌ React XSS Issues Detected\n\n';
 
             results.results.forEach(r => {
-              body += `- **${r.check_id}**  
-              File: \`${r.path}\`  
-              Line: ${r.start.line}  
-              Message: ${r.extra.message}\n\n`;
+              body += `- **${r.check_id}**\n`;
+              body += `  File: \`${r.path}\`\n`;
+              body += `  Line: ${r.start.line}\n`;
+              body += `  Message: ${r.extra.message}\n\n`;
             });
 
             github.rest.issues.createComment({
