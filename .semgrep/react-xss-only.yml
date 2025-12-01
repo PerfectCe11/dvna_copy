@@ -1,6 +1,6 @@
 rules:
   - id: react-dangerouslysetinnerhtml
-    pattern: "dangerouslySetInnerHTML={{ __html: $X }}"
+    pattern: "dangerouslySetInnerHTML\\s*=\\s*\\{\\{[^}]*__html[^}]*\\}\\}"
     message: "React XSS Risk: dangerouslySetInnerHTML detected. Ensure the value is sanitized using DOMPurify or equivalent."
     severity: ERROR
     languages:
