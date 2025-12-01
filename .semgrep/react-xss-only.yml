@@ -1,6 +1,6 @@
 rules:
   - id: react-dangerouslysetinnerhtml
-    pattern: dangerouslySetInnerHTML={{ __html: $X }}
+    pattern: "dangerouslySetInnerHTML={{ __html: $X }}"
     message: "React XSS Risk: dangerouslySetInnerHTML detected. Ensure the value is sanitized using DOMPurify or equivalent."
     severity: ERROR
     languages:
@@ -11,7 +11,7 @@ rules:
       cwe: "CWE-79"
 
   - id: react-innerhtml-assignment
-    pattern: $OBJ.innerHTML = $X
+    pattern: "$OBJ.innerHTML = $X"
     message: "DOM XSS Sink: innerHTML assignment detected. Direct assignment to innerHTML can lead to DOM-based XSS."
     severity: ERROR
     languages:
@@ -22,7 +22,7 @@ rules:
       cwe: "CWE-79"
 
   - id: react-document-write
-    pattern: document.write($X)
+    pattern: "document.write($X)"
     message: "DOM XSS Sink: document.write() usage detected."
     severity: ERROR
     languages:
@@ -34,8 +34,8 @@ rules:
 
   - id: react-eval-xss
     pattern-either:
-      - pattern: eval($X)
-      - pattern: new Function($X)
+      - pattern: "eval($X)"
+      - pattern: "new Function($X)"
     message: "XSS Risk: eval or Function constructor detected."
     severity: ERROR
     languages:
