@@ -1,74 +1,51 @@
-name: React XSS Scan with DangerJS
+name: React XSS Notification (Targeted)
 
 on:
   pull_request:
     branches: [ main, develop ]
-  workflow_dispatch:   # ✅ Manual trigger
+  workflow_dispatch:
 
 jobs:
-  react-xss-scan:
+  react-xss:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Run Targeted React XSS Scan
+        id: semgrep
+        continue-on-error: true
+        run: |
+          docker run --rm -v "$PWD:/src" returntocorp/semgrep \
+            semgrep scan \
+            --config=/src/.semgrep/react-xss-only.yml \
+            --json > semgrep.json
+
+      - name: Check If XSS Was Found
+        id: check
+        run: |
+          COUNT=$(jq '.results | length' semgrep.json)
+          echo "xss_count=$COUNT" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR if XSS Found
+        if: steps.check.outputs.xss_count != '0'
+        uses: actions/github-script@v7
         with:
-          node-version: 8
+          script: |
+            const fs = require('fs');
+            const results = JSON.parse(fs.readFileSync('semgrep.json'));
+            let body = '## ❌ React XSS Issues Detected\n\n';
 
-      # ✅ Install ONLY public security tools (no project deps)
-      - name: Install Security Tooling
-        run: |
-          npm install --no-save \
-            danger \
-            eslint \
-            eslint-plugin-react \
-            eslint-plugin-security \
-            eslint-plugin-no-unsanitized
+            results.results.forEach(r => {
+              body += `- **${r.check_id}**  
+              File: \`${r.path}\`  
+              Line: ${r.start.line}  
+              Message: ${r.extra.message}\n\n`;
+            });
 
-      # ✅ Create temporary ESLint config for XSS
-      - name: Generate ESLint v9 Flat Config for React XSS
-        run: |
-          cat << 'EOF' > eslint.config.mjs
-          import react from "eslint-plugin-react";
-          import security from "eslint-plugin-security";
-          import noUnsanitized from "eslint-plugin-no-unsanitized";
-
-          export default [
-            {
-              files: ["**/*.{js,jsx,ts,tsx}"],
-              languageOptions: {
-                ecmaVersion: 2021,
-                sourceType: "module"
-              },
-              plugins: {
-                react,
-                security,
-                "no-unsanitized": noUnsanitized
-              },
-              rules: {
-                "no-unsanitized/method": "error",
-                "no-unsanitized/property": "error",
-                "security/detect-object-injection": "warn",
-                "security/detect-non-literal-regexp": "warn"
-              }
-            }
-          ];
-          EOF
-
-
-      # ✅ Scan ENTIRE codebase (not just diff)
-      - name: Run Full React XSS Scan
-        run: |
-          npx eslint "**/*.{js,jsx,ts,tsx}" \
-          --config eslint.config.mjs \
-          -f json \
-          -o eslint-results.json || true
-
-      # ✅ Run DangerJS to annotate PR + block if needed
-      - name: Run DangerJS
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npx danger ci
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
