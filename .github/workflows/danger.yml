@@ -14,17 +14,21 @@ jobs:
 
       - name: Run Targeted React XSS Scan
         id: semgrep
-        continue-on-error: true
         run: |
           docker run --rm -v "$PWD:/src" returntocorp/semgrep \
             semgrep scan \
             --config=/src/.semgrep/react-xss-only.yml \
-            --json > semgrep.json
+            --json > semgrep.json || true
+
+      - name: Debug (optional – first run)
+        run: |
+          ls -lah semgrep.json
+          head -n 50 semgrep.json
 
       - name: Check If XSS Was Found
         id: check
         run: |
-          COUNT=$(jq '.results | length' semgrep.json)
+          COUNT=$(cat semgrep.json | jq '.results | length')
           echo "xss_count=$COUNT" >> $GITHUB_OUTPUT
 
       - name: Comment on PR if XSS Found
@@ -33,7 +37,9 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const results = JSON.parse(fs.readFileSync('semgrep.json'));
+
+            const results = JSON.parse(fs.readFileSync('semgrep.json', 'utf8'));
+
             let body = '## ❌ React XSS Issues Detected\n\n';
 
             results.results.forEach(r => {
