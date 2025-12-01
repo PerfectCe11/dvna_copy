@@ -28,47 +28,43 @@ jobs:
             eslint-plugin-no-unsanitized
 
       # ✅ Create temporary ESLint config for XSS
-      - name: Generate ESLint XSS Config
+      - name: Generate ESLint v9 Flat Config for React XSS
         run: |
-          cat << 'EOF' > .eslintrc.json
-          {
-            "env": {
-              "browser": true,
-              "es2021": true,
-              "node": true
-            },
-            "extends": [
-              "eslint:recommended",
-              "plugin:react/recommended",
-              "plugin:security/recommended"
-            ],
-            "plugins": [
-              "react",
-              "security",
-              "no-unsanitized"
-            ],
-            "rules": {
-              "no-unsanitized/method": "error",
-              "no-unsanitized/property": "error",
-              "security/detect-object-injection": "warn",
-              "security/detect-non-literal-regexp": "warn"
-            },
-            "settings": {
-              "react": {
-                "version": "detect"
+          cat << 'EOF' > eslint.config.mjs
+          import react from "eslint-plugin-react";
+          import security from "eslint-plugin-security";
+          import noUnsanitized from "eslint-plugin-no-unsanitized";
+
+          export default [
+            {
+              files: ["**/*.{js,jsx,ts,tsx}"],
+              languageOptions: {
+                ecmaVersion: 2021,
+                sourceType: "module"
+              },
+              plugins: {
+                react,
+                security,
+                "no-unsanitized": noUnsanitized
+              },
+              rules: {
+                "no-unsanitized/method": "error",
+                "no-unsanitized/property": "error",
+                "security/detect-object-injection": "warn",
+                "security/detect-non-literal-regexp": "warn"
               }
             }
-          }
+          ];
           EOF
+
 
       # ✅ Scan ENTIRE codebase (not just diff)
       - name: Run Full React XSS Scan
         run: |
           npx eslint "**/*.{js,jsx,ts,tsx}" \
-            --no-config-lookup \
-            -c .eslintrc.json \
-            -f json \
-            -o eslint-results.json || true
+          --config eslint.config.mjs \
+          -f json \
+          -o eslint-results.json || true
 
       # ✅ Run DangerJS to annotate PR + block if needed
       - name: Run DangerJS
