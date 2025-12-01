@@ -65,7 +65,7 @@ jobs:
       - name: Run Full React XSS Scan
         run: |
           npx eslint "**/*.{js,jsx,ts,tsx}" \
-            --no-eslintrc \
+            --no-config-lookup \
             -c .eslintrc.json \
             -f json \
             -o eslint-results.json || true
