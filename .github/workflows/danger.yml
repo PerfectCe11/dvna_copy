@@ -1,26 +1,77 @@
-name: DangerJS Checks
+name: React XSS Scan with DangerJS
+
 on:
   pull_request:
-    # Danger is typically run only on pull_request events
+    branches: [ main, develop ]
+  workflow_dispatch:   # ✅ Manual trigger
 
 jobs:
-  danger_check:
+  react-xss-scan:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Code
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20' # Use your project's Node version
-          cache: 'yarn' # or 'npm'
+          node-version: 20
 
-      - name: Install Dependencies
-        run: yarn install --frozen-lockfile # or npm ci
+      # ✅ Install ONLY public security tools (no project deps)
+      - name: Install Security Tooling
+        run: |
+          npm install -g danger \
+            eslint \
+            eslint-plugin-react \
+            eslint-plugin-security \
+            eslint-plugin-no-unsanitized
 
-      - name: Run Danger
-        run: yarn danger ci # or npx danger ci
+      # ✅ Create temporary ESLint config for XSS
+      - name: Generate ESLint XSS Config
+        run: |
+          cat << 'EOF' > .eslintrc.json
+          {
+            "env": {
+              "browser": true,
+              "es2021": true,
+              "node": true
+            },
+            "extends": [
+              "eslint:recommended",
+              "plugin:react/recommended",
+              "plugin:security/recommended"
+            ],
+            "plugins": [
+              "react",
+              "security",
+              "no-unsanitized"
+            ],
+            "rules": {
+              "no-unsanitized/method": "error",
+              "no-unsanitized/property": "error",
+              "security/detect-object-injection": "warn",
+              "security/detect-non-literal-regexp": "warn"
+            },
+            "settings": {
+              "react": {
+                "version": "detect"
+              }
+            }
+          }
+          EOF
+
+      # ✅ Scan ENTIRE codebase (not just diff)
+      - name: Run Full React XSS Scan
+        run: |
+          npx eslint "**/*.{js,jsx,ts,tsx}" \
+            --no-eslintrc \
+            -c .eslintrc.json \
+            -f json \
+            -o eslint-results.json || true
+
+      # ✅ Run DangerJS to annotate PR + block if needed
+      - name: Run DangerJS
         env:
-          # Use the built-in GITHUB_TOKEN secret
-          DANGER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx danger ci
