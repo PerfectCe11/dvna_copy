@@ -21,7 +21,8 @@ jobs:
       # ✅ Install ONLY public security tools (no project deps)
       - name: Install Security Tooling
         run: |
-          npm install -g danger \
+          npm install --no-save \
+            danger \
             eslint \
             eslint-plugin-react \
             eslint-plugin-security \
