@@ -15,6 +15,7 @@ rules:
   - id: react-innerhtml-assignment
     patterns:
       - pattern-either:
+          - pattern: $OBJ.innerHTML = $X
           - pattern: $EL.innerHTML = $X
           - pattern: document.body.innerHTML = $X
           - pattern: document.getElementById(...).innerHTML = $X
